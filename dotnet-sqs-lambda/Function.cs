@@ -9,6 +9,7 @@ using Amazon.Lambda.SQSEvents;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Util;
+using dotnet_sqs_lambda.DelimitedReader;
 using Newtonsoft.Json;
 using TinyCsvParser;
 
@@ -51,7 +52,7 @@ namespace dotnet_sqs_lambda
             context.Logger.LogLine($"Processed message {message.Body}");
             var messageBody = JsonConvert.DeserializeObject<S3EventNotification>(message.Body);
 
-            var products = await ReadS3Message(messageBody.Records[0]);
+            var products = await ReadS3MessageLineByLine(messageBody.Records[0]);
 
             await SaveProductsAsync(products);
 
@@ -100,6 +101,7 @@ namespace dotnet_sqs_lambda
             return result;
 
         }
+
         private List<Product> ParseCSV(string csvToParse)
         {
             var csvParserOptions = new CsvParserOptions(true, ',');
@@ -111,6 +113,64 @@ namespace dotnet_sqs_lambda
             return result.Where(r => r.IsValid).Select(r => r.Result).ToList();
 
         }
+
+        #region Process row by row without any dependencies
+        private async Task<List<Product>> ReadS3MessageLineByLine(S3EventNotification.S3EventNotificationRecord notification)
+        {
+            var result = new List<Product>();
+            try
+            {
+
+                var client = new AmazonS3Client(RegionEndpoint.USEast1);
+                var request = new GetObjectRequest
+                {
+                    BucketName = notification.S3.Bucket.Name,
+                    Key = notification.S3.Object.Key
+                };
+
+                using (GetObjectResponse response = await client.GetObjectAsync(request))
+
+                using (CsvReader reader = new CsvReader(ProcessRowFromFile))
+                {
+                    reader.DelimitedFileProcessed += (sender, args) =>
+                    {
+                        Console.WriteLine($"Processing file complete");
+                    };
+
+                    await reader.ProcessDelimted(response.ResponseStream, 5000);
+                }
+            }
+            catch (AmazonS3Exception e)
+            {
+                Console.WriteLine("Error encountered ***. Message:'{0}' when writing an object", e.Message);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Unknown encountered on server. Message:'{0}' when writing an object", e.Message);
+            }
+
+            return result;
+
+        }
+
+        private bool ProcessRowFromFile(DelimitedRow row)
+        {
+            try
+            {
+                // Use the row for something
+                // See Unit tests for more information
+
+                Console.WriteLine($"Successfully processed row");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failure processing row");
+                return false;
+            }
+
+        }
+        #endregion
     }
 }
 
