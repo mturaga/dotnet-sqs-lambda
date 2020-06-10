@@ -25,7 +25,7 @@ namespace dotnet_sqs_lambda.Unit.Tests
 
             if(File.Exists(sampleFile))
             {
-                FileStream fs = new FileStream(sampleFile, FileMode.Open);
+                FileStream fs = new FileStream(sampleFile, FileMode.Open, FileAccess.Read);
                 CsvReader reader = new CsvReader((row) =>
                 {
                     var readStr = $"{row["first_name"]} {row["last_name"]} {row["vin"]}";
@@ -59,13 +59,13 @@ namespace dotnet_sqs_lambda.Unit.Tests
 
             if (File.Exists(sampleFile))
             {
-                FileStream fs = new FileStream(sampleFile, FileMode.Open);
+                FileStream fs = new FileStream(sampleFile, FileMode.Open, FileAccess.Read);
                 CsvReader reader = new CsvReader((row) =>
                 {
                     var id = row.ValueTo<int>("id");
                     var isActive = row.ValueTo<bool>("active");
 
-                    var readStr = $"{id},{row["first_name"]} {row["last_name"]} {row["vin"]} Active is {isActive}";
+                    var readStr = $"{id}, {row["first_name"]} {row["last_name"]} {row["vin"]} Active is {isActive}";
                     strList.Add(readStr);
                     return true;
                 });
